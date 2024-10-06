@@ -4,10 +4,13 @@ FROM golang:1.19-alpine as builder
 # Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
+
+# Копируем go.mod и go.sum (если они есть) для кэширования зависимостей
+COPY go.mod go.sum ./
+RUN go mod download
+
 # Копируем исходники приложения в рабочую директорию
 COPY . .
-# Скачиваем все зависимости
-RUN go mod init test && go mod tidy
 
 # Собираем приложение
 RUN go build -o main
