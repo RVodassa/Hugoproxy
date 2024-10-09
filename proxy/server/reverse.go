@@ -1,11 +1,10 @@
-package main
+package server
 
 import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 )
 
 // ReverseProxy структура для хранения целевого сервера (Hugo)
@@ -26,13 +25,6 @@ func NewReverseProxy(host, port string) *ReverseProxy {
 // ReverseProxy мидлварь для проксирования запросов на сервер hugo
 func (rp *ReverseProxy) ReverseProxy(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Если запрос относится к API, возвращаем "Hello from API"
-		if strings.HasPrefix(r.URL.Path, "/api") {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Hello from API"))
-			return
-		}
-
 		// Проксируем запрос на сервер Hugo
 		link := fmt.Sprintf("http://%s:%s", rp.host, rp.port)
 		uri, err := url.Parse(link)

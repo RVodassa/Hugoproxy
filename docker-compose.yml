@@ -21,6 +21,8 @@ services:
       - "8080:8080"
     networks:
         - mylocal
+    env_file:
+      - ./proxy/.env
 networks:
     mylocal:
         driver: bridge
