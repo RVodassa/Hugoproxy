@@ -30,6 +30,8 @@ func (rp *ReverseProxy) ReverseProxy() http.Handler {
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.Write([]byte("Hello from API"))
 		// Установка заголовков CORS
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
