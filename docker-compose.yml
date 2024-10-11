@@ -21,8 +21,6 @@ services:
       - "8080:8080"  # Пробрасываем порт для прокси-сервера
     networks:
       - mylocal
-    env_file:
-      - ./proxy/.env  # Подключаем файл с переменными окружения
 
 networks:
   mylocal:

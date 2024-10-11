@@ -1,17 +1,23 @@
-package server
+package main
 
 import (
 	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+	"net/http/httputil"
+	"net/url"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
 )
+
+func main() {
+	s := NewServer()
+	s.Start()
+}
 
 // Структура данных сервера
 type Server struct {
@@ -25,12 +31,6 @@ func NewServer() *Server {
 		stop:    make(chan struct{}),
 		handler: chi.NewRouter(),
 	}
-}
-
-// HandleTest обрабатывает тестовый маршрут
-func HandleTest(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK) // 200
-	w.Write([]byte("Test successful"))
 }
 
 // Start запускает сервер
@@ -48,27 +48,20 @@ func (s *Server) Start() error {
 
 	r.Use(middleware.Logger) // Логирование каждого запроса
 
-	r.Get("/test", HandleTest)
-	r.Post("/api/address/geocode", HandleGeocode)
-	r.Post("/api/address/search", HandleSearch)
-	// Создание инстанса реверс-прокси
+	// Создание инстанса реверс-прокси для запросов с префиксом /api/
 	rp := NewReverseProxy("localhost", "8080")
 	r.Mount("/api/", rp.ReverseProxy())
 
-	// Эндпоинт для swagger.yaml
-	r.Get("/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Запрос на swagger.yaml")
-		if _, err := os.Stat("./swagger/swagger.yaml"); os.IsNotExist(err) {
-			log.Println("swagger.yaml не найден!")
-			http.Error(w, "swagger.yaml не найден!", http.StatusNotFound)
-			return
-		}
-		http.ServeFile(w, r, "./swagger/swagger.yaml")
+	// Создание реверс-прокси для всех остальных запросов
+	frontendProxy := httputil.NewSingleHostReverseProxy(&url.URL{
+		Scheme: "http",
+		Host:   "hugo:1313",
 	})
 
-	// Раздача статических файлов из папки dist (Swagger UI)
-	fs := http.FileServer(http.Dir("./swagger/static/swagger/dist"))
-	r.Handle("/swagger/*", http.StripPrefix("/swagger/", fs))
+	// Обработчик для всех остальных запросов
+	r.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		frontendProxy.ServeHTTP(w, r)
+	}))
 
 	// Конфигурация HTTP-сервера
 	port := ":8080"
@@ -104,19 +97,3 @@ func (s *Server) Stop() error {
 	log.Println("Сервер успешно остановлен")
 	return nil
 }
-
-// const content = ``
-
-// func WorkerTest() {
-// 	t := time.NewTicker(1 * time.Second)
-// 	defer t.Stop()
-// 	var b byte = 0
-
-// 	for range t.C { // Используем for range для обработки событий
-// 		err := os.WriteFile("/app/static/_index.md", []byte(fmt.Sprint(content, b)), 0644)
-// 		if err != nil {
-// 			log.Println(err)
-// 		}
-// 		b++
-// 	}
-// }

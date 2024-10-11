@@ -1,6 +1,7 @@
-package server
+package main
 
 import (
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -30,25 +31,17 @@ func (rp *ReverseProxy) ReverseProxy() http.Handler {
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		w.Write([]byte("Hello from API"))
-		// Установка заголовков CORS
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		log.Printf("Received request for %s", r.URL.Path)
 
-		// Если это предварительный запрос, завершите его здесь
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+		if r.URL.Path == "/api" || r.URL.Path == "/api/" {
+			log.Println("Returning 'Hello from API'")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Hello from API"))
 			return
 		}
 
-		r.URL.Host = targetURL.Host
-		r.URL.Scheme = targetURL.Scheme
-		r.Host = targetURL.Host
-
-		// Проксирование запроса
+		log.Println("Proxying request to", targetURL)
 		proxy.ServeHTTP(w, r)
-
 	})
+
 }

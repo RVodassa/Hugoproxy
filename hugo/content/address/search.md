@@ -56,7 +56,7 @@ API: https://dadata.ru/api/
             lat: e.latlng.lat.toString(),
             lng: e.latlng.lng.toString()
         };
-        fetch('http://localhost:8080/api/address/geocode', {
+        fetch('/api/address/geocode', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -136,7 +136,7 @@ document.getElementById('search').addEventListener('input', function() {
     const data = {
         query: this.value
     };
-    fetch('http://localhost:8080/api/address/search', {
+    fetch('/api/address/search', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
