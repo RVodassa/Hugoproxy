@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 )
 
 // Структура данных сервера
@@ -26,19 +27,35 @@ func NewServer() *Server {
 	}
 }
 
+// HandleTest обрабатывает тестовый маршрут
 func HandleTest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK) // 200
+	w.Write([]byte("Test successful"))
 }
 
+// Start запускает сервер
 func (s *Server) Start() error {
 	// Инициализация роутера chi
 	r := chi.NewRouter()
 
-	r.Get("/test", HandleTest)
-	// Использование стандартных middleware от chi
+	// Настройка CORS
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:1313"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type"},
+		AllowCredentials: true,
+	}))
+
 	r.Use(middleware.Logger) // Логирование каждого запроса
 
-	// Эндпоинт для вашего swagger.yaml
+	r.Get("/test", HandleTest)
+	r.Post("/api/address/geocode", HandleGeocode)
+	r.Post("/api/address/search", HandleSearch)
+	// Создание инстанса реверс-прокси
+	rp := NewReverseProxy("localhost", "8080")
+	r.Mount("/api/", rp.ReverseProxy())
+
+	// Эндпоинт для swagger.yaml
 	r.Get("/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Запрос на swagger.yaml")
 		if _, err := os.Stat("./swagger/swagger.yaml"); os.IsNotExist(err) {
@@ -53,23 +70,7 @@ func (s *Server) Start() error {
 	fs := http.FileServer(http.Dir("./swagger/static/swagger/dist"))
 	r.Handle("/swagger/*", http.StripPrefix("/swagger/", fs))
 
-	// Инициализация структуры прокси-сервера
-	rp := NewReverseProxy("hugo", "1313")
-
-	// Добавляем маршрут для /api, который возвращает текст "Hello from API"
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Hello from API"))
-		})
-	})
-
-	r.Post("/api/address/geocode", HandleGeocode)
-	r.Post("/api/address/search", HandleSearch)
-
-	// Прокси для всех других маршрутов
-	r.NotFound(rp.ReverseProxy(nil).ServeHTTP)
-
+	// Конфигурация HTTP-сервера
 	port := ":8080"
 	s.httpSrv = &http.Server{
 		Addr:    port,
@@ -78,14 +79,14 @@ func (s *Server) Start() error {
 
 	// Запуск сервера в горутине
 	go func() {
+		log.Printf("Сервер запущен на порту %s", port)
 		if err := s.httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Ошибка запуска сервера: %v", err)
-
 		}
-		log.Printf("Сервер запущен на порту %s", port)
 	}()
 
-	<-s.stop // Ожидание сигнала остановки
+	// Ожидание сигнала остановки
+	<-s.stop
 	return nil
 }
 
@@ -108,7 +109,7 @@ func (s *Server) Stop() error {
 
 // func WorkerTest() {
 // 	t := time.NewTicker(1 * time.Second)
-// 	defer t.Stop() // Обязательно останавливаем таймер при выходе из функции
+// 	defer t.Stop()
 // 	var b byte = 0
 
 // 	for range t.C { // Используем for range для обработки событий

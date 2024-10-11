@@ -12,13 +12,26 @@ import (
 	"github.com/ekomobile/dadata/v2/client"
 )
 
+// Структуры для запросов и ответов
 type SearchRequest struct {
-	Query string `json:"query"` // Запрос для поиска адреса
+	Query string `json:"query"`
 }
 
 type GeocodeRequest struct {
-	Lat string `json:"lat"` // Широта
-	Lng string `json:"lng"` // Долгота
+	Lat string `json:"lat"`
+	Lng string `json:"lng"`
+}
+
+type Address struct {
+	City   string `json:"city"`
+	Street string `json:"street"`
+	House  string `json:"house"`
+	Lat    string `json:"lat"`
+	Lon    string `json:"lon"`
+}
+
+type ResponseAddress struct {
+	Addresses []*Address `json:"addresses"`
 }
 
 type GeoService struct {
@@ -27,13 +40,13 @@ type GeoService struct {
 	secretKey string
 }
 
+// Интерфейс для провайдера геосервиса
 type GeoProvider interface {
 	AddressSearch(input string) ([]*Address, error)
 	GeoCode(lat, lng string) ([]*Address, error)
 }
 
 func NewGeoService(apiKey, secretKey string) *GeoService {
-	var err error
 	endpointUrl, err := url.Parse("https://suggestions.dadata.ru/suggestions/api/4_1/rs/")
 	if err != nil {
 		return nil
@@ -53,17 +66,9 @@ func NewGeoService(apiKey, secretKey string) *GeoService {
 		apiKey:    apiKey,
 		secretKey: secretKey,
 	}
-
 }
 
-type Address struct {
-	City   string `json:"city"`
-	Street string `json:"street"`
-	House  string `json:"house"`
-	Lat    string `json:"lat"`
-	Lon    string `json:"lon"`
-}
-
+// Метод поиска адресов
 func (g *GeoService) AddressSearch(input string) ([]*Address, error) {
 	var res []*Address
 	rawRes, err := g.api.Address(context.Background(), &suggest.RequestParams{Query: input})
@@ -71,19 +76,27 @@ func (g *GeoService) AddressSearch(input string) ([]*Address, error) {
 		return nil, err
 	}
 
+	// Преобразуем результаты API DaData в массив объектов Address
 	for _, r := range rawRes {
 		if r.Data.City == "" || r.Data.Street == "" {
 			continue
 		}
-		res = append(res, &Address{City: r.Data.City, Street: r.Data.Street, House: r.Data.House, Lat: r.Data.GeoLat, Lon: r.Data.GeoLon})
+		res = append(res, &Address{
+			City:   r.Data.City,
+			Street: r.Data.Street,
+			House:  r.Data.House,
+			Lat:    r.Data.GeoLat,
+			Lon:    r.Data.GeoLon,
+		})
 	}
 
 	return res, nil
 }
 
+// Метод геокодирования (поиск адресов по координатам)
 func (g *GeoService) GeoCode(lat, lng string) ([]*Address, error) {
 	httpClient := &http.Client{}
-	var data = strings.NewReader(fmt.Sprintf(`{"lat": %s, "lon": %s}`, lat, lng))
+	data := strings.NewReader(fmt.Sprintf(`{"lat": %s, "lon": %s}`, lat, lng))
 
 	req, err := http.NewRequest("POST", "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address", data)
 	if err != nil {
@@ -104,7 +117,7 @@ func (g *GeoService) GeoCode(lat, lng string) ([]*Address, error) {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var geoCode GeoCode
+	var geoCode geoCode
 	if err := json.NewDecoder(resp.Body).Decode(&geoCode); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
@@ -122,4 +135,17 @@ func (g *GeoService) GeoCode(lat, lng string) ([]*Address, error) {
 	}
 
 	return res, nil
+}
+
+// Структура для обработки ответа от API DaData для геолокации
+type geoCode struct {
+	Suggestions []struct {
+		Data struct {
+			City   string `json:"city"`
+			Street string `json:"street"`
+			House  string `json:"house"`
+			GeoLat string `json:"geo_lat"`
+			GeoLon string `json:"geo_lon"`
+		} `json:"data"`
+	} `json:"suggestions"`
 }

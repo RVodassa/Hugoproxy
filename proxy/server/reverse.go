@@ -1,13 +1,12 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 )
 
-// ReverseProxy структура для хранения целевого сервера (Hugo)
+// ReverseProxy структура для хранения целевого сервера
 type ReverseProxy struct {
 	host string
 	port string
@@ -21,27 +20,33 @@ func NewReverseProxy(host, port string) *ReverseProxy {
 	}
 }
 
-// ReverseProxy middleware для проксирования запросов
-// ReverseProxy мидлварь для проксирования запросов на сервер hugo
-func (rp *ReverseProxy) ReverseProxy(next http.Handler) http.Handler {
+// ReverseProxy мидлварь для проксирования запросов
+func (rp *ReverseProxy) ReverseProxy() http.Handler {
+	targetURL, err := url.Parse("http://" + rp.host + ":" + rp.port)
+	if err != nil {
+		panic(err) // Обработка ошибки, если URL недопустим
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Проксируем запрос на сервер Hugo
-		link := fmt.Sprintf("http://%s:%s", rp.host, rp.port)
-		uri, err := url.Parse(link)
-		if err != nil {
-			http.Error(w, "Invalid proxy URL", http.StatusInternalServerError)
+		// Установка заголовков CORS
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// Если это предварительный запрос, завершите его здесь
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		r.Header.Set("Reverse-Proxy", "true")
+		r.URL.Host = targetURL.Host
+		r.URL.Scheme = targetURL.Scheme
+		r.Host = targetURL.Host
 
-		proxy := httputil.ReverseProxy{Director: func(req *http.Request) {
-			req.URL.Scheme = uri.Scheme
-			req.URL.Host = uri.Host
-			req.URL.Path = r.URL.Path
-			req.Host = uri.Host
-		}}
-
+		// Проксирование запроса
 		proxy.ServeHTTP(w, r)
+
 	})
 }

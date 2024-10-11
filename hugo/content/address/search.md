@@ -56,7 +56,7 @@ API: https://dadata.ru/api/
             lat: e.latlng.lat.toString(),
             lng: e.latlng.lng.toString()
         };
-        fetch('/api/address/geocode', {
+        fetch('http://localhost:8080/api/address/geocode', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -65,6 +65,7 @@ API: https://dadata.ru/api/
         })
         .then(response => response.json())
         .then(data => {
+           console.log('DEBUG: Received data:', data); // Логируем полученные данные
            table.setData(data.addresses);
            if (data.addresses.length > 0) {
                 mymap.flyTo([data.addresses[0].lat, data.addresses[0].lon], 17);
@@ -135,7 +136,7 @@ document.getElementById('search').addEventListener('input', function() {
     const data = {
         query: this.value
     };
-    fetch('/api/address/search', {
+    fetch('http://localhost:8080/api/address/search', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

@@ -21,7 +21,7 @@ COPY . .
 RUN ls -la ./swagger/
 
 # Собираем приложение
-RUN go build -o main
+RUN go build -o  main .
 
 # Начинаем новую стадию сборки на основе минимального образа
 FROM alpine:latest
@@ -35,4 +35,4 @@ COPY --from=builder /app/swagger /swagger
 EXPOSE 8080
 
 # Запускаем приложение
-CMD ["/main"]
+CMD ["./main"]
